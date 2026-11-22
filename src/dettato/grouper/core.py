@@ -82,7 +82,11 @@ def gather(P, H, S, notes, hop):
     Cc = H.shape[2]
     if N == 0:
         return np.zeros((0, 12), np.float32), np.zeros((0, 3, Cc), np.int8), np.zeros((0, 3), np.float16)
-    nt = torch.from_numpy(notes).to(dev)
+    # MPS has no float64, so a float64 notes array cannot be moved to the device
+    # there. Narrow to float32 on the way in: only the onset / offset / pitch
+    # arithmetic below uses these, and it immediately rounds or bins them, so the
+    # precision that matters is unaffected.
+    nt = torch.from_numpy(np.asarray(notes, np.float32)).to(dev)
     lane = (nt[:, 2].round().long() - PITCH_LO).clamp(0, L - 1)
     t0 = (nt[:, 0] / hop).round().long().clamp(0, T - 1)
     te = torch.maximum((nt[:, 1] / hop).ceil().long(), t0 + 1).clamp(max=T)
